@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CheckFormRequest;
 
+use Illuminate\Support\Facades\Storage;
+
 class CheckController extends Controller
 {
     /**
@@ -30,7 +32,6 @@ class CheckController extends Controller
     {
         //
     }
-    // facebook.com
     /**
      * Store a newly created resource in storage.
      *
@@ -40,7 +41,7 @@ class CheckController extends Controller
     public function check(CheckFormRequest $request)
     {   
         $data = [
-            'robotstxtPresent' => false,
+            'robotstxtPresents' => false,
             'httpCode' => '',
             'hostDirectiveNum' => 0,
             'sitemapDirectiveNum' => 0,
@@ -52,71 +53,41 @@ class CheckController extends Controller
         $requestUrl = str_replace('https://', '', $requestUrl);
         $requestUrl = str_replace('www.', '', $requestUrl);
         $requestUrl = 'http://' . $requestUrl;
-        $url = parse_url($requestUrl)['host'];
+        $url = 'http://' . parse_url($requestUrl)['host'];
         $robotstxtUrl = $url  . '/robots.txt';
-        // pre($robotstxtUrl);
-        // $robotstxt = '';
-        // $agents = array(preg_quote('*'));
-        // if($useragent) $agents[] = preg_quote($useragent, '/');
-        // $agents = implode('|', $agents);
-
-
         $handle = curl_init($robotstxtUrl);
         curl_setopt($handle,  CURLOPT_RETURNTRANSFER, true);
         $response = curl_exec($handle);
         $httpCode = curl_getinfo($handle, CURLINFO_HTTP_CODE);
+        $data['httpCode'] = $httpCode;
         $redirectUrl = curl_getinfo($handle)['redirect_url'];//?
         if (!empty($redirectUrl)) {
             $robotstxtUrl = $redirectUrl;
         }
         $data['targetUrl'] = $robotstxtUrl;
-        // pre($robotstxtUrl);
-        // if ($httpCode != 400) {
-        //     $data['robotstxtPresent'] = true;
-        // }
-        // pre($data['robotstxtPresent'],1);
-        $data['httpCode'] = $httpCode;
         curl_close($handle);
-        
+        pre($robotstxtUrl);
         $robotstxtContents = @file_get_contents($robotstxtUrl);
         if ($robotstxtContents === false) {
-            $data['robotstxtPresent'] = false;
+            $data['robotstxtPresents'] = false;
         } else {
-            $data['robotstxtPresent'] = true;
+            $data['robotstxtPresents'] = true;
             file_put_contents(storage_path() . '\sitecheck\robots.txt', $robotstxtContents);
             $data['robotstxtSize'] = round((filesize(storage_path() . '\sitecheck\robots.txt') / 1024), 2);
         }
         $robotstxt = @file(storage_path() . '\sitecheck\robots.txt');
-        if ($data['robotstxtPresent']) {
-            # code...
+        if ($data['robotstxtPresents']) {
             foreach($robotstxt as $line) {
-      // skip blank lines
-            // if (!$line = trim($line)) continue;
                 if (mb_stristr($line, 'host') != false){
                     $data['hostDirectiveNum'] ++;
                 }
                 if (mb_stristr($line, 'sitemap') != false){
                     $data['sitemapDirectiveNum'] ++;
                 }
-            // pre(mb_stristr($line, 'sitemap'));
             }
         }
-        pre($robotstxt);
         @unlink(storage_path() . '\sitecheck\robots.txt');
-        pre($data);
         return view('check.details')->with('data', $data);
-    // $arrContextOptions=array(
-    //   "ssl"=>array(
-    //         "verify_peer"=>false,
-    //         "verify_peer_name"=>false,
-    //     ),
-    // );
-    // $html = file_get_contents($url, false, stream_context_create($arrContextOptions));
-    // $html = preg_replace('#<script(.*?)>(.*?)</script>#is', '', $html);
-    // pre($html,1);
-    //     $is_url = filter_var($url, FILTER_VALIDATE_URL, FILTER_FLAG_HOST_REQUIRED) !== false;
-    //     pre($is_url,1);
-    //     // return $request->all();
     }
 
     /**

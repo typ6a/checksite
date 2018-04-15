@@ -14,6 +14,7 @@
 Route::get('/', function () {
     return view('welcome');
 });
+Route::get('/', 'Check\CheckController@index');
+Route::post('/', 'Check\CheckController@check');
 Route::get('home', 'Check\CheckController@index');
 Route::post('home', 'Check\CheckController@check');
-Route::post('importExcel', 'CheckController@importExcel');
