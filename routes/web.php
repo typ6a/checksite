@@ -11,10 +11,20 @@
 |
 */
 
-Route::get('/', function () {
-    return view('welcome');
-});
+
 Route::get('/', 'Check\CheckController@index');
 Route::post('/', 'Check\CheckController@check');
-Route::get('home', 'Check\CheckController@index');
-Route::post('home', 'Check\CheckController@check');
+
+
+
+
+
+
+
+
+
+
+
+Route::get('save', 'Check\CheckController@save');
+Route::get('results', 'Check\CheckController@results');
+// Route::post('save', 'Check\CheckController@save');

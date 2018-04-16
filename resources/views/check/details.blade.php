@@ -6,9 +6,8 @@
         <div class="panel-heading">
             <h3> Результат проверки {{ $data['targetUrl'] }} </h3>
         </div>
-        <table id="result" class="table table-bordered table-sm">
+        <table id="result" class="table table-bordered table-sm" name="table">
             <tbody>
-                
                 <tr>
                     <th >№</th>
                     <th>Название проверки</th>
@@ -158,6 +157,10 @@
         <div>
             <a href="/" class="btn btn-primary" style="padding: 25px, 5px,25px, 5px; margin: 15px;">Назад</a>
         </div>
+        <div class="form-group">
+            <button a href="{!! action('Check\CheckController@save') !!}" type="submit" class="btn btn-primary">Сохранить</button>
+        </div>
+
     </div>
 </div>
 <script src="js/jquery-3.1.1.min.js" type="text/javascript"></script>
