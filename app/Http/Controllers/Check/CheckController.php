@@ -16,34 +16,19 @@ use Illuminate\Support\Facades\Storage;
 
 class CheckController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
+  
     public function index()
     {
         return view('check/index');
-        $url = $request->input('url');
-        // $url = $request->url;
     }
 
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Http\Response
-     */
     public function results()
     {
         $data = [
             'checkResult' => $this->check(),
             'metrics' => CheckMetrics::$metrics,
         ];
-        // pre($data,1);
-
-        
         return view('check.result')->with('data', $data);
-     
     }
 
     protected function check(CheckFormRequest $request)
@@ -96,7 +81,6 @@ class CheckController extends Controller
         $result = @file_get_contents($robotstxtUrl);
         //pre($http_response_header,1);
 
-
         $httpCodes = [];
         foreach ($http_response_header as $line) {
             if (stristr($line, 'HTTP/')) {
@@ -105,7 +89,6 @@ class CheckController extends Controller
         }
 
         $httpCode = end($httpCodes);
-
 
         if((int) $httpCode === 200){
             $data[CheckMetrics::HTTP_CODE]['status'] = true;
@@ -138,7 +121,6 @@ class CheckController extends Controller
         }   
         $data[CheckMetrics::HTTP_CODE]['value'] = $httpCode;
 
-// pre($data,1);
         $data = [
             'checkResult' => $data,
             'metrics' => CheckMetrics::$metrics,
@@ -148,89 +130,97 @@ class CheckController extends Controller
         return view('check.result')->with('data', $data);
     }
 
-    public static function getCells($columnNumber, $columnWidth, $rowNumer, $rowHeight)
-    {
-        // column starts
-        $xM = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($columnNumber);
-        // column ends
-        $xN = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($columnNumber + ($columnWidth - 1));
-        // row starts
-        $yM = $rowNumer;
-        // row ends
-        $yN = ($rowHeight > 0) ? $rowNumer + ($rowHeight - 1) : $rowNumer;
-        return "{$xM}{$yM}:{$xN}{$yN}";
-    }
-
     public function export()
     {   
         $data = session('data');
-        
-        //pre($data,1);
-
+        // pre($data,1);
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
 
-        $cellsChars = ['A', 'B', 'C', 'D', 'E'];
+        $sheet->getColumnDimension('A')->setWidth(9);
+        $sheet->getColumnDimension('B')->setWidth(50);
+        $sheet->getColumnDimension('C')->setWidth(10);
+        $sheet->getColumnDimension('D')->setWidth(15);
+        $sheet->getColumnDimension('E')->setWidth(75);
+        $sheet->getStyle('A')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('A')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
 
-        $header = [
-            'No',
-            'Title',
-            'Status',
-            'Empty',
-            'State',
-        ];
+        $sheet->getStyle('B')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT);
+        $sheet->getStyle('B')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+
+        $sheet->getStyle('C')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER);
+        $sheet->getStyle('C')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+        
+        $sheet->getStyle('D')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT);
+        $sheet->getStyle('D')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+
+        $sheet->getStyle('E')->getAlignment()->setHorizontal(\PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_LEFT);
+        $sheet->getStyle('E')->getAlignment()->setVertical(\PhpOffice\PhpSpreadsheet\Style\Alignment::VERTICAL_CENTER);
+
+        $sheet->getStyle('E')->getAlignment()->setWrapText(true);
+
 
         $sheet->setCellValue('A1', 'No');
         $sheet->setCellValue('B1', 'Название проверки');
         $sheet->setCellValue('C1', 'Статус');
         $sheet->setCellValue('D1', '');
         $sheet->setCellValue('E1', 'Текущее состояние');
-
+        $sheet->getStyle("A1:E1")->getFont()->setBold(true);
         $currentRow = 2;
+// pre($data);
+        $show8 = true;
         foreach($data['metrics'] as $metric_key => $metric){
-            foreach($header as $column_index => $column){
-                $xM = $cellsChars[($column_index)];
-                $xN = $xM;
-                $yM = $currentRow;
-                $yN = $yM;
-                
-                $code = "{$xM}{$yM}:{$xN}{$yN}";
+                if(!$data['checkResult'][$metric_key]['status']){
+                    $show8 = false;
+                }
+                if($metric_key === \App\Enum\CheckMetrics::HOST_COUNT && !$show8) { 
+                    continue;
+                }
+            $number = $metric['number'];
+            $title = $metric['title'];
+            $status = $data['checkResult'][$metric_key]['status'];
 
-                $number = $data['checkResult'][$metric_key]['number'];
-                $title = $data['checkResult'][$metric_key]['title'];
-                $status = $data['checkResult'][$metric_key]['status'];
-                $state = $data['checkResult'][$metric_key]['state'];
-
-                $sheet->setCellValue($code, $number);
-                $sheet->setCellValue($code, $title);
-                $sheet->setCellValue($code, ($status ? 'Ok' : 'Error'));
-                $sheet->setCellValue($code, '');
-                $sheet->setCellValue($code, $state);
-
-                pre($code);
+            if ($status) {
+                $state = sprintf($metric['status']['ok']['state'], $data['checkResult'][$metric_key]['value']);
+                $recomendation = $metric['status']['ok']['recomendation'];
+            } else {
+                $state = $metric['status']['error']['state'];
+                $recomendation = $metric['status']['error']['recomendation'];
             }
+
+            $sheet->setCellValue("A{$currentRow}", $number);
+            $sheet->setCellValue("B{$currentRow}", $title);
+            $sheet
+                ->setCellValue("C{$currentRow}", ($status ? 'Ok' : 'Error'))
+                ->getStyle("C{$currentRow}")->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setARGB($status ? '8055FF33' : '80FF3355');
+            $sheet->setCellValue("D{$currentRow}", 'Состояние');
+            $sheet->setCellValue("E{$currentRow}", $state);
+
             $currentRow++;
+
+            $sheet->setCellValue("A{$currentRow}", $number);
+            $sheet->setCellValue("B{$currentRow}", $title);
+            $sheet->setCellValue("C{$currentRow}", ($status ? 'Ok' : 'Error'));
+            $sheet->setCellValue("D{$currentRow}", 'Рекомендации');
+            $sheet->setCellValue("E{$currentRow}", $recomendation);
+
+            $sheet->mergeCells('A' . ($currentRow - 1) . ':A' . $currentRow);
+            $sheet->mergeCells('B' . ($currentRow - 1) . ':B' . $currentRow);
+            $sheet->mergeCells('C' . ($currentRow - 1) . ':C' . $currentRow);
+
+            $currentRow++;
+            if ($data['checkResult']['robotstxtPresents']['status'] === false) {
+                break;
+            }
+            if (($data['checkResult']['hostDirectivePresents']['status'] === false) && $currentRow == 8) {
+                continue;
+            }
         }
-
-
 
         $writer = new Xlsx($spreadsheet);
         $writer->save(storage_path('result.xlsx'));
-
-
-
-
-        pre('',1);
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function destroy($id)
-    {
-        //
+        return response()->download(storage_path('result.xlsx'))->deleteFileAfterSend(true);
     }
 }

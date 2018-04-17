@@ -52,16 +52,20 @@
                             <td>{{ sprintf($metric['status']['error']['recomendation'], $data['checkResult'][$metric_key]['value']) }}</td>
                         @endif
                     </tr>
+                    @if ($data['checkResult']['robotstxtPresents']['status'] === false)
+                        @break;
+                    @endif
                 @endforeach
             </tbody>
         </table>
-        <div>
-            <a href="/" class="btn btn-primary" style="padding: 25px, 5px,25px, 5px; margin: 15px;">Назад</a>
-        </div>
-        <div class="form-group">
+        <div class="row">
+        <div class="form-group" style="margin: 15px">
             <a href="export" type="submit" class="btn btn-primary">Сохранить</a>
         </div>
-
+        <div style="margin: 15px">
+            <a href="/" type="submit" class="btn btn-Success"">Назад</a>
+        </div>
+        </div>    
     </div>
 </div>
 
