@@ -17,7 +17,16 @@
                     <th>&nbsp;</th>
                     <th >Текущее состояние</th>
                 </tr>
+                <?php $show8 = true; ?>
                 @foreach ($data['metrics'] as $metric_key => $metric)
+                    <?php if($metric_key === \App\Enum\CheckMetrics::HOST_EXISTS) { ?>
+                        <?php if(!$data['checkResult'][$metric_key]['status']): ?>
+                            <?php $show8 = false; ?>
+                        <?php endif; ?>
+                    <?php } ?>
+                    <?php if($metric_key === \App\Enum\CheckMetrics::HOST_COUNT && !$show8) { ?>
+                        @continue
+                    <?php } ?>
                     <tr>
                         <td rowspan=2 >
                             {{ $metric['number'] }}
@@ -50,7 +59,7 @@
             <a href="/" class="btn btn-primary" style="padding: 25px, 5px,25px, 5px; margin: 15px;">Назад</a>
         </div>
         <div class="form-group">
-            <button a href="{!! action('Check\CheckController@save') !!}" type="submit" class="btn btn-primary">Сохранить</button>
+            <a href="export" type="submit" class="btn btn-primary">Сохранить</a>
         </div>
 
     </div>

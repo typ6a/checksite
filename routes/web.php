@@ -25,6 +25,6 @@ Route::post('/', 'Check\CheckController@check');
 
 
 
-Route::get('save', 'Check\CheckController@save');
+Route::get('export', 'Check\CheckController@export');
 Route::get('results', 'Check\CheckController@results');
 // Route::post('save', 'Check\CheckController@save');

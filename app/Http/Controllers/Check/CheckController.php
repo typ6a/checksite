@@ -10,6 +10,7 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 use App\Enum\CheckMetrics;
+use PhpOffice\PhpSpreadsheet\Cell as Fuck;
 
 use Illuminate\Support\Facades\Storage;
 
@@ -42,14 +43,7 @@ class CheckController extends Controller
 
         
         return view('check.result')->with('data', $data);
-        // // pre('12354',1);
-        // $tableData = [];
-        // $tableData['tableHead'] =[
-        //     '№', 'Название проверки', 'Статус' , '&nbsp' , 'Текущее состояние' 
-        // ] ;
-
-            
-        pre(CheckMetrics::$metrics,1);
+     
     }
 
     protected function check(CheckFormRequest $request)
@@ -89,84 +83,139 @@ class CheckController extends Controller
         $requestUrl = 'http://' . $requestUrl;
         $url = 'http://' . parse_url($requestUrl)['host'];
 
+        function parseHttpCode($http_response_string){
+            if(preg_match('/^HTTP\/1\.1\040([^\040]\d+).*$/', $http_response_string, $matches)){
+                if(!empty($matches[1])){
+                    return $matches[1];
+                }
+            }
+            return false;
+        }
+
         $robotstxtUrl = $url  . '/robots.txt';
-
         $result = @file_get_contents($robotstxtUrl);
-        if(preg_match('/^HTTP\/1\.1\040([^\040]\d+).*$/', $http_response_header[0], $matches)){
-            if(!empty($matches[1])){
-                $httpCode = $matches[1];
+        //pre($http_response_header,1);
+
+
+        $httpCodes = [];
+        foreach ($http_response_header as $line) {
+            if (stristr($line, 'HTTP/')) {
+                $httpCodes[] = parseHttpCode($line);
             }
         }
+
+        $httpCode = end($httpCodes);
+
+
         if((int) $httpCode === 200){
-            $data['httpCode']['status'] = true;
-        }   
-        $data['httpCode']['value'] = $httpCode;
+            $data[CheckMetrics::HTTP_CODE]['status'] = true;
 
-        $data['targetUrl'] = $robotstxtUrl;
-        $robotstxtContents = @file_get_contents($robotstxtUrl);
-        if ($robotstxtContents !== false) {
-            $data['robotstxtPresents']['status'] = true;
-            file_put_contents(storage_path() . '\sitecheck\robots.txt', $robotstxtContents);
-            $filesize = round((filesize(storage_path() . '\sitecheck\robots.txt') / 1024), 2);
-            $data['robotstxtSize']['status'] = (float) $filesize > 32 ? false : true;
-            $data['robotstxtSize']['value'] = $filesize;
-        }
-        
-        $robotstxt = @file(storage_path() . '\sitecheck\robots.txt');
-        if ($data['robotstxtPresents']) {
-            foreach($robotstxt as $line) {
-                if (mb_stristr($line, 'host') !== false) {
-                    $data['hostDirectivePresents']['status'] = true;
-                    $data['hostDirectiveNum']['status'] = true;
-                    $data['hostDirectiveNum']['value']++;
-                }
-                if (mb_stristr($line, 'sitemap') !== false) {
-                    $data['sitemapDirectiveExists']['status'] = true;
+            $data['targetUrl'] = $robotstxtUrl;
+            $robotstxtContents = @file_get_contents($robotstxtUrl);
+            if ($robotstxtContents !== false) {
+                $data[CheckMetrics::ROBOTS_EXISTS]['status'] = true;
+                file_put_contents(storage_path() . '\sitecheck\robots.txt', $robotstxtContents);
+                $filesize = round((filesize(storage_path() . '\sitecheck\robots.txt') / 1024), 2);
+                $data[CheckMetrics::ROBOTS_SIZE]['status'] = (float) $filesize > 32 ? false : true;
+                $data[CheckMetrics::ROBOTS_SIZE]['value'] = $filesize;
+            }
+            
+
+            $robotstxt = @file(storage_path() . '\sitecheck\robots.txt');
+            //pre($robotstxt,1);
+            if ($data[CheckMetrics::ROBOTS_EXISTS]['status']) {
+                foreach($robotstxt as $line) {
+                    if (mb_stristr($line, 'host') !== false) {
+                        $data[CheckMetrics::HOST_EXISTS]['status'] = true;
+                        $data[CheckMetrics::HOST_COUNT]['status'] = true;
+                        $data[CheckMetrics::HOST_COUNT]['value']++;
+                    }
+                    if (mb_stristr($line, 'sitemap') !== false) {
+                        $data[CheckMetrics::SITEMAP_EXISTS]['status'] = true;
+                    }
                 }
             }
-        }
+        }   
+        $data[CheckMetrics::HTTP_CODE]['value'] = $httpCode;
 
+// pre($data,1);
         $data = [
             'checkResult' => $data,
             'metrics' => CheckMetrics::$metrics,
         ];
-        pre($data);
         @unlink(storage_path() . '\sitecheck\robots.txt');
-        // return $data;
+        session(['data' => $data]);
         return view('check.result')->with('data', $data);
     }
 
-    /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function importExcel()
+    public static function getCells($columnNumber, $columnWidth, $rowNumer, $rowHeight)
     {
-         Excel::create('thecodingstuff', function($excel) {
-            $excel->sheet('thecodingstuff', function($sheet) {
-                $sheet->loadView('Check.details');
-            });
-        })->export('xls');
-        //return view('thecodingstuff.bladexcel');
+        // column starts
+        $xM = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($columnNumber);
+        // column ends
+        $xN = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($columnNumber + ($columnWidth - 1));
+        // row starts
+        $yM = $rowNumer;
+        // row ends
+        $yN = ($rowHeight > 0) ? $rowNumer + ($rowHeight - 1) : $rowNumer;
+        return "{$xM}{$yM}:{$xN}{$yN}";
     }
 
+    public function export()
+    {   
+        $data = session('data');
+        
+        //pre($data,1);
 
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
-    public function save()
-    {
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
-        $sheet->setCellValue('A1', 'Hello World !');
+
+        $cellsChars = ['A', 'B', 'C', 'D', 'E'];
+
+        $header = [
+            'No',
+            'Title',
+            'Status',
+            'Empty',
+            'State',
+        ];
+
+        $sheet->setCellValue('A1', 'No');
+        $sheet->setCellValue('B1', 'Название проверки');
+        $sheet->setCellValue('C1', 'Статус');
+        $sheet->setCellValue('D1', '');
+        $sheet->setCellValue('E1', 'Текущее состояние');
+
+        $currentRow = 2;
+        foreach($data['metrics'] as $metric_key => $metric){
+            foreach($header as $column_index => $column){
+                $xM = $cellsChars[($column_index)];
+                $xN = $xM;
+                $yM = $currentRow;
+                $yN = $yM;
+                
+                $code = "{$xM}{$yM}:{$xN}{$yN}";
+
+                $number = $data['checkResult'][$metric_key]['number'];
+                $title = $data['checkResult'][$metric_key]['title'];
+                $status = $data['checkResult'][$metric_key]['status'];
+                $state = $data['checkResult'][$metric_key]['state'];
+
+                $sheet->setCellValue($code, $number);
+                $sheet->setCellValue($code, $title);
+                $sheet->setCellValue($code, ($status ? 'Ok' : 'Error'));
+                $sheet->setCellValue($code, '');
+                $sheet->setCellValue($code, $state);
+
+                pre($code);
+            }
+            $currentRow++;
+        }
+
+
+
         $writer = new Xlsx($spreadsheet);
-        $writer->save(storage_path('hello world.xlsx'));
+        $writer->save(storage_path('result.xlsx'));
 
 
 
